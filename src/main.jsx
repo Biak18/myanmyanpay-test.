@@ -84,7 +84,16 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: Number(amount) }),
       });
-      const data = await response.json();
+      const responseText = await response.text();
+      let data;
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        const details = responseText.trim().slice(0, 300);
+        throw new Error(
+          `Payment API returned a non-JSON response (HTTP ${response.status}).${details ? ` ${details}` : ""}`,
+        );
+      }
       if (!response.ok)
         throw new Error(data.error || "Payment could not be created.");
       const activePayment = { ...data, createdAt: Date.now() };
