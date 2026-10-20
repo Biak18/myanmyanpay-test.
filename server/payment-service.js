@@ -1,11 +1,12 @@
 import 'dotenv/config';
+import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import QRCode from 'qrcode';
-import * as mmpaySdkModule from 'mmpay-node-sdk';
+const require = createRequire(import.meta.url);
+const { MMPaySDK } = require('mmpay-node-sdk');
 
-// The package publishes both ESM and CommonJS builds. Vercel may load its
-// CommonJS build, where named ESM imports are not available.
-const MMPaySDK = mmpaySdkModule.MMPaySDK || mmpaySdkModule.default?.MMPaySDK;
+// Load the SDK's CommonJS export explicitly. Its ESM build is not marked as
+// type=module in the package, which can fail on Vercel's Node runtime.
 
 const required = ['MMPAY_APP_ID', 'MMPAY_SANDBOX_PUBLISHABLE_KEY', 'MMPAY_SANDBOX_SECRET_KEY'];
 let sdk;
