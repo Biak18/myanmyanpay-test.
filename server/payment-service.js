@@ -22,6 +22,7 @@ export function getMmpay() {
     });
   }
   if (!callbackListenersRegistered) {
+    sdk.on('error', (error) => console.error('MMPay sandbox SDK callback error:', error?.message || error));
     sdk.onTxCreate((tx) => console.info('MMPay sandbox transaction pending:', tx.orderId));
     sdk.onTxSuccess((tx) => console.info('MMPay sandbox transaction succeeded:', tx.orderId));
     sdk.onTxFail((tx) => console.info('MMPay sandbox transaction failed:', tx.orderId));
@@ -48,14 +49,38 @@ export async function createSandboxPayment(amount) {
   }
 
   const orderId = `TEST-${Date.now()}-${randomUUID().slice(0, 6).toUpperCase()}`;
-  const payment = await mmpay.sandboxPay({
+  const payment = await mmpay.pay({
     orderId,
     amount,
     currency: 'MMK',
     items: [{ name: 'Fieldnotes journal', amount, quantity: 1 }],
     customMessage: 'Fieldnotes sandbox test payment',
   });
-  if (!payment?.qr) throw new Error('Sandbox did not return a QR payload. Check your keys and API response.');
+  if (!payment?.qr) {
+    const providerMessage = [payment?.message, payment?.error, payment?.detail]
+      .find((value) => typeof value === 'string' && value.trim());
+    const responseKeys = payment && typeof payment === 'object' ? Object.keys(payment) : [];
+    const networkCode = payment?.cause?.code || payment?.code;
+    if (networkCode === 'ENOTFOUND') {
+      const apiBaseUrl = process.env.MMPAY_API_BASE_URL || 'https://sandbox.myanmyanpay.com';
+      const apiHost = new URL(apiBaseUrl).hostname;
+      const error = new Error(
+        `Cannot resolve Myan Myan Pay API host ${apiHost}. Set MMPAY_API_BASE_URL to the sandbox base URL shown for your app in the Developer Console. This request did not reach Myan Myan Pay.`
+      );
+      error.statusCode = 502;
+      console.error('MMPay sandbox host did not resolve:', { orderId, apiHost });
+      throw error;
+    }
+    const details = providerMessage
+      ? ` Provider response: ${providerMessage.slice(0, 200)}${networkCode ? ` (${networkCode})` : ''}.`
+      : '';
+    const error = new Error(
+      `Myan Myan Pay returned no QR for order ${orderId}.${details} Check this order in the sandbox console before retrying.`
+    );
+    error.statusCode = 502;
+    console.error('MMPay sandbox response had no QR:', { orderId, responseKeys });
+    throw error;
+  }
 
   const qrImage = await QRCode.toDataURL(payment.qr, { width: 320, margin: 1, color: { dark: '#17251f', light: '#ffffff' } });
   return { orderId, amount, status: payment.status || 'PENDING', qrImage, qrPayload: payment.qr };

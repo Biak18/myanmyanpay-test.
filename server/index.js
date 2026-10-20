@@ -3,7 +3,12 @@ import express from 'express';
 import { createSandboxPayment, isMmpayConfigured, verifySandboxCallback } from './payment-service.js';
 
 const app = express();
-app.use(express.json({ limit: '32kb' }));
+app.use(express.json({
+  limit: '32kb',
+  verify(req, _res, buffer) {
+    if (req.originalUrl === '/api/webhooks/mmpay-callback') req.rawBody = buffer.toString('utf8');
+  },
+}));
 app.get('/api/status', (_req, res) => res.json({ configured: isMmpayConfigured(), environment: 'sandbox' }));
 app.post('/api/payments', async (req, res) => {
   const amount = Number(req.body?.amount);
@@ -15,7 +20,7 @@ app.post('/api/payments', async (req, res) => {
   }
 });
 app.post('/api/webhooks/mmpay-callback', async (req, res) => {
-  const payload = JSON.stringify(req.body);
+  const payload = req.rawBody || JSON.stringify(req.body);
   const nonce = req.headers['x-mmpay-nonce'];
   const signature = req.headers['x-mmpay-signature'];
   try {
