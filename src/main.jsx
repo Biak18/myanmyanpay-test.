@@ -3,8 +3,8 @@ import { createRoot } from "react-dom/client";
 import mmqrLogo from "../images/MMQR_Logo.png";
 import "./styles.css";
 
-const ACTIVE_PAYMENT_KEY = "fieldnotes.activePayment.v1";
 const PAYMENT_WINDOW_SECONDS = 15 * 60;
+const ACTIVE_PAYMENT_KEY = "fieldnotes.activePayment.v1";
 
 function readActivePayment() {
   try {
@@ -188,6 +188,11 @@ function App() {
     CANCELLED: "The payment request was cancelled.",
     EXPIRED: "The payment request expired before it was completed.",
   }[paymentStatus];
+  const flowStep = !payment
+    ? "Step 1 of 3 · Start test payment"
+    : paymentStatus === "PENDING"
+      ? "Step 2 of 3 · Scan the QR"
+      : "Step 3 of 3 · Review result";
   return (
     <main className="page-shell">
       <header className="topbar">
@@ -207,7 +212,7 @@ function App() {
       <section className="layout" id="top">
         <div className="intro">
           <div className="eyebrow">
-            <span className="eyebrow-line" />A small checkout demo
+            A small checkout demo
           </div>
           <h1>
             Make room
@@ -215,8 +220,8 @@ function App() {
             for <em>good ideas.</em>
           </h1>
           <p className="intro-copy">
-            A pocket journal for the things you don't want to forget. Try a
-            sandbox payment with Myan Myan Pay.
+            Start a sandbox payment, scan the MMQR, and follow the result here.
+            Each test run gets a unique order reference.
           </p>
           <div
             className="product-art"
@@ -244,7 +249,7 @@ function App() {
         <section className="checkout" aria-labelledby="checkout-title">
           <div className="checkout-head">
             <div>
-              <p className="step-label">Your order</p>
+              <p className="step-label">{flowStep}</p>
               <h2 id="checkout-title">Checkout</h2>
             </div>
             <span className="lock-icon" aria-label="Secure checkout">
@@ -326,7 +331,7 @@ function App() {
                 <>Active payment in progress</>
               ) : (
                 <>
-                  Continue to payment <span>→</span>
+                  Pay with MyanMyanPay <span>→</span>
                 </>
               )}
             </button>
@@ -425,8 +430,7 @@ function App() {
           <div className="payment-footer">
             <span>
               Powered by <strong>Myan Myan Pay</strong>
-            </span>
-            <span className="footer-lock">◇ Encrypted checkout</span>
+            </span>          
           </div>
         </section>
       </section>

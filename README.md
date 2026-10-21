@@ -7,14 +7,14 @@ A small React + Vite checkout with an Express API that creates sandbox MMQR paym
 1. Install Node.js, then run `npm install` in this directory.
 2. Copy `.env.example` to `.env` and fill in the sandbox app ID, publishable key, and secret key from the Myan Myan Pay developer console.
 3. Run `npm run dev` and open the local Vite URL printed in the terminal.
-4. Enter an amount and choose **Continue to payment**. Scan the returned sandbox QR with a supported payment app.
+4. Enter an amount and choose **Create test payment**. Scan the returned sandbox QR with a supported payment app.
 
-The API uses `https://sandbox.myanmyanpay.com` by default. Set `MMPAY_API_BASE_URL` only if Myan Myan Pay gave your sandbox app a different base URL. Never put the secret key in a `VITE_` variable or commit `.env`.
+The API uses `https://ezapi.myanmyanpay.com` by default. Set `MMPAY_API_BASE_URL` only if Myan Myan Pay gave your sandbox app a different base URL. Never put the secret key in a `VITE_` variable or commit `.env`.
 
 ## Run the merchant test-payment exercise
 
 1. Add the sandbox app ID, publishable key, and secret key to `.env`, then start the app with `npm run dev`.
-2. Enter an amount of at least 1,000 MMK and choose **Continue to payment**. The server calls the MMPay SDK and returns an order reference plus the MMQR payload; the browser displays the QR.
+2. Enter an amount of at least 1,000 MMK and choose **Pay with MyanMyanPay**. The server calls the MMPay SDK and returns a unique order reference plus the MMQR payload; the browser displays the QR.
 3. Scan the QR using a supported payment app. QR creation starts a `PENDING` request; it is not proof of payment.
 4. The checkout checks status automatically every five seconds through `GET /api/payment-status?orderId=...`, which uses the SDK's payment lookup method. `SUCCESS` confirms the payment. `PENDING` means it is still awaiting payment; `FAILED`, `CANCELLED`, and `EXPIRED` are not successful. Terminal results hide the QR and show **Close result**.
 5. To demonstrate cancellation, choose **Cancel active payment**. The app calls MMPay's cancel API and clears the cached order only after MMPay confirms `CANCELLED`.

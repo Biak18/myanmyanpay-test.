@@ -85,11 +85,6 @@ body {
   font-size: 12px;
   font-weight: 600;
 }
-.eyebrow-line {
-  width: 26px;
-  height: 1px;
-  background: #5b8b70;
-}
 .intro h1 {
   font-family: "Playfair Display", serif;
   font-size: clamp(50px, 5.5vw, 70px);
@@ -497,7 +492,7 @@ body {
 .payment-footer {
   height: 61px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   color: #9aa39d;
   font-size: 9px;
@@ -667,12 +662,19 @@ body {
   border: 0;
   background: #315e49;
   color: white;
-  font: 600 10px "DM Sans", sans-serif;
+  font:
+    600 10px "DM Sans",
+    sans-serif;
   cursor: pointer;
 }
-.check-status:hover:not(:disabled) { background: #234b37; }
+.check-status:hover:not(:disabled) {
+  background: #234b37;
+}
 .check-status:disabled,
-.cancel-payment:disabled { opacity: 0.55; cursor: not-allowed; }
+.cancel-payment:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .terminal-result {
   margin: 12px 0;
   padding: 24px 15px;
@@ -691,13 +693,34 @@ body {
   color: #286b49;
   font-size: 22px;
 }
-.terminal-result strong { display: block; color: #274a34; font-size: 15px; }
-.terminal-result p { margin: 7px 0 0; color: #68776c; font-size: 10px; line-height: 1.6; }
+.terminal-result strong {
+  display: block;
+  color: #274a34;
+  font-size: 15px;
+}
+.terminal-result p {
+  margin: 7px 0 0;
+  color: #68776c;
+  font-size: 10px;
+  line-height: 1.6;
+}
 .terminal-result.status-failed,
 .terminal-result.status-expired,
-.terminal-result.status-cancelled { border-color: #eadfd8; background: #faf5f2; }
+.terminal-result.status-cancelled {
+  border-color: #eadfd8;
+  background: #faf5f2;
+}
 .terminal-result.status-failed .terminal-mark,
 .terminal-result.status-expired .terminal-mark,
-.terminal-result.status-cancelled .terminal-mark { background: #f2e4dd; color: #9a4c36; }
-.terminal-result.status-refunded { border-color: #e7e2cf; background: #faf9f2; }
-.terminal-result.status-refunded .terminal-mark { background: #efeddc; color: #71672e; }
+.terminal-result.status-cancelled .terminal-mark {
+  background: #f2e4dd;
+  color: #9a4c36;
+}
+.terminal-result.status-refunded {
+  border-color: #e7e2cf;
+  background: #faf9f2;
+}
+.terminal-result.status-refunded .terminal-mark {
+  background: #efeddc;
+  color: #71672e;
+}

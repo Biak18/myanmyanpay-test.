@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import { randomUUID } from "node:crypto";
 import QRCode from "qrcode";
 const require = createRequire(import.meta.url);
-const { MMPaySDK, CallbackIncomingData } = require("mmpay-node-sdk");
+const { MMPaySDK } = require("mmpay-node-sdk");
 
 const required = [
   "MMPAY_APP_ID",
