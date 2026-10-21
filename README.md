@@ -11,7 +11,15 @@ A small React + Vite checkout with an Express API that creates sandbox MMQR paym
 
 The API uses `https://sandbox.myanmyanpay.com` by default. Set `MMPAY_API_BASE_URL` only if Myan Myan Pay gave your sandbox app a different base URL. Never put the secret key in a `VITE_` variable or commit `.env`.
 
-The sandbox QR request is initiated here; this demo does not treat the browser redirect or QR scan as proof of a successful payment. The verified callback is available at `/api/webhooks/mmpay-callback`. It validates the `X-Mmpay-Nonce` and `X-Mmpay-Signature` headers through the SDK and logs callback statuses. This demo does not persist callback status in a database; confirm payment status in the sandbox transaction details in the developer console.
+## Run the merchant test-payment exercise
+
+1. Add the sandbox app ID, publishable key, and secret key to `.env`, then start the app with `npm run dev`.
+2. Enter an amount of at least 1,000 MMK and choose **Continue to payment**. The server calls the MMPay SDK and returns an order reference plus the MMQR payload; the browser displays the QR.
+3. Scan the QR using a supported payment app. QR creation starts a `PENDING` request; it is not proof of payment.
+4. The checkout checks status automatically every five seconds through `GET /api/payment-status?orderId=...`, which uses the SDK's payment lookup method. `SUCCESS` confirms the payment. `PENDING` means it is still awaiting payment; `FAILED`, `CANCELLED`, and `EXPIRED` are not successful. Terminal results hide the QR and show **Close result**.
+5. To demonstrate cancellation, choose **Cancel active payment**. The app calls MMPay's cancel API and clears the cached order only after MMPay confirms `CANCELLED`.
+
+The verified webhook endpoint is `/api/webhooks/mmpay-callback`. It validates the `X-Mmpay-Nonce` and `X-Mmpay-Signature` headers through the SDK, then emits the matching event in the server logs. A webhook is server-to-server and does not push directly into the open browser. The page therefore looks up the latest provider status automatically. For local development, configure a publicly reachable webhook URL in the MMPay developer console to receive callbacks. This demo does not store order statuses in a database.
 
 ## Deploy on Vercel
 

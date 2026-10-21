@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import mmqrLogo from "../images/MMQR_Logo.png";
 import "./styles.css";
@@ -48,8 +48,11 @@ function App() {
   );
   const [configured, setConfigured] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const statusRequestRef = useRef(false);
   const [error, setError] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(PAYMENT_WINDOW_SECONDS);
+  const paymentStatus = payment?.status || "PENDING";
 
   useEffect(() => {
     fetch("/api/status")
@@ -106,14 +109,85 @@ function App() {
     }
   }
 
-  function cancelPayment() {
-    localStorage.removeItem(ACTIVE_PAYMENT_KEY);
-    setPayment(null);
-    setSecondsLeft(PAYMENT_WINDOW_SECONDS);
+  async function refreshPaymentStatus(silent = false) {
+    if (!payment || statusRequestRef.current) return;
+    statusRequestRef.current = true;
+    if (!silent) setError("");
+    try {
+      const response = await fetch(
+        `/api/payment-status?orderId=${encodeURIComponent(payment.orderId)}`,
+      );
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Could not retrieve payment status.");
+      setPayment((current) => {
+        if (!current || current.orderId !== payment.orderId) return current;
+        const updatedPayment = { ...current, ...data };
+        localStorage.setItem(ACTIVE_PAYMENT_KEY, JSON.stringify(updatedPayment));
+        return updatedPayment;
+      });
+    } catch (err) {
+      if (!silent)
+        setError(err.message || "Could not retrieve payment status.");
+    } finally {
+      statusRequestRef.current = false;
+    }
+  }
+
+  useEffect(() => {
+    if (!payment || paymentStatus !== "PENDING" || cancelBusy) return;
+    refreshPaymentStatus(true);
+    const timer = window.setInterval(() => refreshPaymentStatus(true), 5000);
+    return () => window.clearInterval(timer);
+  }, [payment?.orderId, paymentStatus, cancelBusy]);
+
+  async function cancelPayment() {
+    if (!payment || cancelBusy) return;
+    setCancelBusy(true);
     setError("");
+    try {
+      const response = await fetch("/api/payments/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: payment.orderId }),
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Could not cancel the payment.");
+      if (data.status !== "CANCELLED") {
+        const updatedPayment = { ...payment, ...data };
+        localStorage.setItem(ACTIVE_PAYMENT_KEY, JSON.stringify(updatedPayment));
+        setPayment(updatedPayment);
+        throw new Error(
+          `Myan Myan Pay reports ${data.status}. The active order was kept. Refresh its status before continuing.`,
+        );
+      }
+      localStorage.removeItem(ACTIVE_PAYMENT_KEY);
+      setPayment(null);
+      setSecondsLeft(PAYMENT_WINDOW_SECONDS);
+    } catch (err) {
+      setError(err.message || "Could not cancel the payment.");
+    } finally {
+      setCancelBusy(false);
+    }
   }
 
   const formattedAmount = Number(amount || 0).toLocaleString();
+  const paymentStatusLabel = {
+    PENDING: "Waiting for customer payment",
+    SUCCESS: "Payment confirmed",
+    FAILED: "Payment failed",
+    REFUNDED: "Payment refunded",
+    CANCELLED: "Payment cancelled",
+    EXPIRED: "Payment request expired",
+  }[paymentStatus] || "Payment status returned";
+  const paymentStatusDescription = {
+    SUCCESS: "Payment is confirmed. The merchant can now fulfill this order.",
+    FAILED: "The payment did not succeed. Close this result to start another test.",
+    REFUNDED: "This payment was refunded. No fulfillment should be made.",
+    CANCELLED: "The payment request was cancelled.",
+    EXPIRED: "The payment request expired before it was completed.",
+  }[paymentStatus];
   return (
     <main className="page-shell">
       <header className="topbar">
@@ -196,7 +270,7 @@ function App() {
               <input
                 id="amount"
                 type="number"
-                min="100"
+                min="1000"
                 step="100"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
@@ -206,7 +280,7 @@ function App() {
               <span className="currency">MMK</span>
             </div>
             <p className="field-hint">
-              Choose any whole amount from 100 MMK upward.
+              Enter a whole amount of at least 1,000 MMK for the sandbox request.
             </p>
             <div className="summary">
               <div>
@@ -262,49 +336,90 @@ function App() {
               <div className="result-heading">
                 <span className="result-check">✓</span>
                 <div>
-                  <strong>Scan to pay</strong>
-                  <span>Sandbox · {payment.status}</span>
+                  <strong>{paymentStatusLabel}</strong>
+                  <span>Sandbox · {paymentStatus}</span>
                 </div>
               </div>
-              <div
-                className="qr-timer"
-                role="timer"
-                aria-label={`${Math.floor(secondsLeft / 60)} minutes ${secondsLeft % 60} seconds remaining`}
-              >
-                <span className="timer-icon">◷</span>
-                {secondsLeft > 0
-                  ? `QR expires in ${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`
-                  : "QR payment window ended"}
-              </div>
-              <img className="mmqr-logo" src={mmqrLogo} alt="MMQR" />
-              <img
-                className="qr-image"
-                src={payment.qrImage}
-                alt="Sandbox payment QR code"
-              />
-              <a
-                className="download-qr"
-                href={payment.qrImage}
-                download={`${payment.orderId}-qr.png`}
-              >
-                Download QR
-              </a>
-              <p className="mmpay-attribution">PAYMENT POWERED BY MYANMARPay</p>
-              <div className="order-reference">
-                <span>Order reference</span>
-                <code>{payment.orderId}</code>
-              </div>
-              <p className="scan-hint">
-                Open a supported payment app and scan this QR to complete the
-                test transaction.
-              </p>
-              <button
-                className="cancel-payment"
-                type="button"
-                onClick={cancelPayment}
-              >
-                Cancel active payment
-              </button>
+              {paymentStatus === "PENDING" ? (
+                <>
+                  <div
+                    className="qr-timer"
+                    role="timer"
+                    aria-label={`${Math.floor(secondsLeft / 60)} minutes ${secondsLeft % 60} seconds remaining`}
+                  >
+                    <span className="timer-icon">◷</span>
+                    {secondsLeft > 0
+                      ? `QR expires in ${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`
+                      : "QR payment window ended"}
+                  </div>
+                  <img className="mmqr-logo" src={mmqrLogo} alt="MMQR" />
+                  <img
+                    className="qr-image"
+                    src={payment.qrImage}
+                    alt="Sandbox payment QR code"
+                  />
+                  <a
+                    className="download-qr"
+                    href={payment.qrImage}
+                    download={`${payment.orderId}-qr.png`}
+                  >
+                    Download QR
+                  </a>
+                  <p className="mmpay-attribution">
+                    PAYMENT POWERED BY MYANMARPay
+                  </p>
+                  <div className="order-reference">
+                    <span>Order reference</span>
+                    <code>{payment.orderId}</code>
+                  </div>
+                  <p className="scan-hint">
+                    Scan with a supported payment app. Creating a QR starts a
+                    pending request; it does not confirm payment.
+                  </p>
+                  <button
+                    className="cancel-payment"
+                    type="button"
+                    onClick={cancelPayment}
+                    disabled={cancelBusy}
+                  >
+                    {cancelBusy ? "Cancelling…" : "Cancel active payment"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div
+                    className={`terminal-result status-${paymentStatus.toLowerCase()}`}
+                  >
+                    <span className="terminal-mark" aria-hidden="true">
+                      {paymentStatus === "SUCCESS" ? "✓" : "!"}
+                    </span>
+                    <strong>{paymentStatusLabel}</strong>
+                    <p>{paymentStatusDescription}</p>
+                  </div>
+                  <div className="order-reference">
+                    <span>Order reference</span>
+                    <code>{payment.orderId}</code>
+                  </div>
+                  {payment.transactionRefId && (
+                    <div className="order-reference">
+                      <span>Payment reference</span>
+                      <code>{payment.transactionRefId}</code>
+                    </div>
+                  )}
+                  <button
+                    className="check-status"
+                    type="button"
+                    onClick={() => {
+                      localStorage.removeItem(ACTIVE_PAYMENT_KEY);
+                      setPayment(null);
+                      setSecondsLeft(PAYMENT_WINDOW_SECONDS);
+                      setError("");
+                    }}
+                  >
+                    Close result
+                  </button>
+                </>
+              )}
             </div>
           )}
           <div className="payment-footer">
